@@ -1,0 +1,297 @@
+<title>Sentry Orbit Room</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap">
+<style>
+/* Layout: full-bleed 3D scene with a risk ledger docked right (stacked below on phones). Single dark "night sky" look by choice. */
+:root {
+  --void: #05070d;
+  --panel: #0c111c;
+  --line: #1e2738;
+  --ink: #e6ebf5;
+  --muted: #8a96ad;
+  --risk: #ffb347;
+  --risk-hot: #ff6b4a;
+  --cleared: #6fc2c9;
+  --display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body: "Inter", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--void); color: var(--ink); font-family: var(--body); overflow: hidden; }
+.app { display: grid; grid-template-columns: 1fr 360px; height: 100%; }
+.stage { position: relative; min-width: 0; overflow: hidden; }
+#scene { display: block; width: 100%; height: 100%; touch-action: none; }
+.hud { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: 16px; right: 16px; pointer-events: none; display: flex; flex-direction: column; gap: 6px; }
+.hud h1 { font-family: var(--display); font-weight: 700; font-size: 1.5rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.hud p { margin: 0; color: var(--muted); max-width: 52ch; font-size: 0.85rem; line-height: 1.45; }
+.clock { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 16px; right: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.clock .date { font-family: var(--mono); font-size: 1.1rem; font-variant-numeric: tabular-nums; min-width: 11ch; }
+.btn { font: 500 0.8rem var(--body); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.btn:focus-visible, .row:focus-visible, input:focus-visible { outline: 2px solid var(--risk); outline-offset: 2px; }
+.speed { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--muted); }
+.speed input { width: 120px; accent-color: var(--risk); }
+.labels { position: absolute; inset: 0; pointer-events: none; }
+.tag { position: absolute; transform: translate(8px, -50%); font: 500 0.7rem var(--mono); color: var(--muted); white-space: nowrap; text-shadow: 0 0 4px var(--void); }
+.tag.sel { color: var(--ink); font-size: 0.78rem; }
+.tag.earth { color: #9cc9ff; }
+aside { background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.detail { padding: 18px 16px; padding-right: max(16px, env(safe-area-inset-right, 0px)); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.detail h2 { font-family: var(--display); font-size: 1.15rem; margin: 0; }
+.chip { align-self: flex-start; font: 500 0.68rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; border: 1px solid currentColor; }
+.chip.listed { color: var(--risk); }
+.chip.removed { color: var(--cleared); }
+dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 0.82rem; }
+dt { color: var(--muted); }
+dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: 0.78rem; line-height: 1.45; margin: 0; }
+.ledger-head { display: grid; grid-template-columns: minmax(0,1fr) 60px 92px; gap: 8px; padding: 10px 16px 6px; font: 500 0.66rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.ledger { overflow-y: auto; flex: 1; min-height: 0; }
+.row { display: grid; grid-template-columns: minmax(0,1fr) 60px 92px; gap: 8px; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); color: var(--ink); padding: 9px 16px; cursor: pointer; font: 400 0.8rem var(--body); }
+.row:hover { background: #121a29; }
+.row.on { background: #17202f; box-shadow: inset 3px 0 0 var(--risk); }
+.row .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.76rem; }
+.row.removed .num { color: var(--cleared); }
+.src { padding: 12px 16px; border-top: 1px solid var(--line); font-size: 0.7rem; color: var(--muted); line-height: 1.5; }
+.src a { color: var(--muted); }
+@media (max-width: 760px) {
+  body { overflow: auto; }
+  .app { grid-template-columns: 1fr; grid-template-rows: 62vh auto; height: auto; }
+  aside { border-left: 0; border-top: 1px solid var(--line); }
+  .ledger { max-height: none; }
+  .hud p { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .btn, .row { transition: none; } }
+</style>
+
+<div class="app">
+  <div class="stage">
+    <canvas id="scene" aria-label="3D view of Earth, the Sun and the orbits of the highest-risk asteroids"></canvas>
+    <div class="labels" id="labels"></div>
+    <div class="hud">
+      <h1>Sentry Orbit Room</h1>
+      <p>The 15 asteroids with the highest Palermo-scale scores on NASA JPL's Sentry impact-risk list, plus 2024 YR4, on their real orbits around the Sun. Drag to rotate, scroll or pinch to zoom, pick a row to follow one.</p>
+    </div>
+    <div class="clock">
+      <button class="btn" id="play" type="button">Pause</button>
+      <span class="date" id="date">—</span>
+      <label class="speed" for="speed">Speed <input id="speed" type="range" min="0" max="60" step="1" value="10"><span id="speedv">10 days/s</span></label>
+      <button class="btn" id="today" type="button">Back to today</button>
+      <button class="btn" id="fly" type="button">View Earth</button>
+    </div>
+  </div>
+  <aside>
+    <div class="detail" id="detail"></div>
+    <div class="ledger-head"><span>Object</span><span style="text-align:right">Palermo</span><span style="text-align:right">Chance</span></div>
+    <div class="ledger" id="ledger"></div>
+    <div class="src">
+      Data: <a href="https://cneos.jpl.nasa.gov/sentry/" target="_blank" rel="noopener">JPL CNEOS Sentry</a> risk list and
+      <a href="https://ssd-api.jpl.nasa.gov/doc/sbdb.html" target="_blank" rel="noopener">JPL Small-Body Database</a> orbits, fetched <span id="fetched"></span>.
+      Earth orbit: JPL approximate planetary elements (J2000). Earth image: NASA Blue Marble.
+      Earth, Sun and asteroids are drawn far larger than real scale so you can see them; orbits and positions are to scale.
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const DATA = /*DATA*/null;
+const AU = 10;                                  // scene units per astronomical unit
+const DEG = Math.PI / 180;
+const J2000 = 2451545.0;
+
+// Earth's orbit from JPL's "Approximate Positions of the Planets" (J2000 elements)
+const EARTH = { a: 1.00000261, e: 0.01671123, i: 0, om: 0, w: 102.93768193, ma: 100.46457166 - 102.93768193, epoch_jd: J2000 };
+
+// ---------- orbit math (Kepler's equation) ----------
+function solveE(M, e) { let E = M; for (let k = 0; k < 12; k++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E)); return E; }
+function rotate(o, xp, yp) {
+  const O = o.om * DEG, w = o.w * DEG, i = o.i * DEG;
+  const cO = Math.cos(O), sO = Math.sin(O), cw = Math.cos(w), sw = Math.sin(w), ci = Math.cos(i), si = Math.sin(i);
+  const X = (cO * cw - sO * sw * ci) * xp + (-cO * sw - sO * cw * ci) * yp;
+  const Y = (sO * cw + cO * sw * ci) * xp + (-sO * sw + cO * cw * ci) * yp;
+  const Z = (sw * si) * xp + (cw * si) * yp;
+  return new THREE.Vector3(X * AU, Z * AU, -Y * AU);     // ecliptic -> scene (y up)
+}
+function posAt(o, jd) {
+  const n = 0.9856076686 / Math.pow(o.a, 1.5);            // mean motion, degrees per day
+  const M = ((o.ma + n * (jd - o.epoch_jd)) % 360) * DEG;
+  const E = solveE(M, o.e);
+  return rotate(o, o.a * (Math.cos(E) - o.e), o.a * Math.sqrt(1 - o.e * o.e) * Math.sin(E));
+}
+function orbitPoints(o, n = 360) {
+  const pts = [];
+  for (let k = 0; k <= n; k++) { const E = 2 * Math.PI * k / n; pts.push(rotate(o, o.a * (Math.cos(E) - o.e), o.a * Math.sqrt(1 - o.e * o.e) * Math.sin(E))); }
+  return pts;
+}
+
+// ---------- scene ----------
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#05070d');
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 2000);
+camera.position.set(0, 26, 34);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.minDistance = 1.2; controls.maxDistance = 120;
+
+// background stars (decorative only)
+{ const g = new THREE.BufferGeometry(), p = [];
+  for (let k = 0; k < 2500; k++) { const v = new THREE.Vector3(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1).normalize().multiplyScalar(400 + Math.random() * 300); p.push(v.x, v.y, v.z); }
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x8090b0, size: 1.1, sizeAttenuation: false }))); }
+
+scene.add(new THREE.AmbientLight(0x404858, 0.6));
+const sunLight = new THREE.PointLight(0xffffff, 1.6, 0, 0); scene.add(sunLight);
+const sun = new THREE.Mesh(new THREE.SphereGeometry(0.7, 48, 32), new THREE.MeshBasicMaterial({ color: 0xffd27a }));
+scene.add(sun);
+{ const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,210,122,0.9)'); gr.addColorStop(0.3, 'rgba(255,170,80,0.25)'); gr.addColorStop(1, 'rgba(255,150,60,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false, blending: THREE.AdditiveBlending }));
+  glow.scale.set(6, 6, 1); scene.add(glow); }
+
+// faint ecliptic rings at 1-4 AU for scale
+for (let r = 1; r <= 4; r++) {
+  const pts = []; for (let k = 0; k <= 128; k++) { const t = 2 * Math.PI * k / 128; pts.push(new THREE.Vector3(Math.cos(t) * r * AU, 0, Math.sin(t) * r * AU)); }
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x1a2232 })));
+}
+
+// Earth: textured globe tilted 23.4 degrees
+const earth = new THREE.Group(); scene.add(earth);
+const texture = new THREE.TextureLoader().load('EARTH_TEXTURE_URI');
+const globe = new THREE.Mesh(new THREE.SphereGeometry(0.42, 64, 48), new THREE.MeshPhongMaterial({ map: texture, shininess: 12 }));
+globe.rotation.z = 23.44 * DEG; earth.add(globe);
+const atmo = new THREE.Mesh(new THREE.SphereGeometry(0.46, 48, 32), new THREE.MeshBasicMaterial({ color: 0x5aa0ff, transparent: true, opacity: 0.12, side: THREE.BackSide }));
+earth.add(atmo);
+scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(orbitPoints(EARTH)), new THREE.LineBasicMaterial({ color: 0x3f7fd0 })));
+
+// Asteroids: lumpy rocks (shape is illustrative), size grows with real diameter
+function rock(diamKm, color) {
+  const r = 0.09 + 0.07 * Math.log10(1 + 20 * (diamKm || 0.05));
+  const g = new THREE.IcosahedronGeometry(r, 2), p = g.attributes.position;
+  for (let k = 0; k < p.count; k++) { const v = new THREE.Vector3().fromBufferAttribute(p, k); v.multiplyScalar(0.8 + 0.35 * Math.abs(Math.sin(v.x * 37) * Math.cos(v.y * 29 + v.z * 17))); p.setXYZ(k, v.x, v.y, v.z); }
+  g.computeVertexNormals();
+  return new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0, flatShading: true }));
+}
+const COL_LISTED = new THREE.Color('#ffb347'), COL_HOT = new THREE.Color('#ff6b4a'), COL_CLEAR = new THREE.Color('#6fc2c9');
+const items = DATA.objects.map((o, idx) => {
+  const listed = o.status === 'listed';
+  const col = listed ? COL_LISTED.clone().lerp(COL_HOT, Math.min(1, Math.max(0, (o.ps_cum + 3) / 2))) : COL_CLEAR.clone();
+  const lineMat = listed ? new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.35 })
+                         : new THREE.LineDashedMaterial({ color: col, transparent: true, opacity: 0.5, dashSize: 0.3, gapSize: 0.25 });
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(orbitPoints(o.orbit)), lineMat);
+  if (!listed) line.computeLineDistances();
+  scene.add(line);
+  const mesh = rock(o.diameter_km, new THREE.Color('#a59a8c').lerp(col, 0.35));
+  mesh.userData.spin = new THREE.Vector3(Math.random(), Math.random(), Math.random()).multiplyScalar(0.02);
+  scene.add(mesh);
+  return { o, idx, line, mesh, col };
+});
+
+// ---------- labels ----------
+const labelsEl = document.getElementById('labels');
+function tag(text, cls) { const d = document.createElement('div'); d.className = 'tag ' + (cls || ''); d.textContent = text; labelsEl.appendChild(d); return d; }
+items.forEach(it => it.tag = tag(it.o.name.replace(/[()]/g, '')));
+const earthTag = tag('Earth', 'earth');
+const sunTag = tag('Sun');
+
+// ---------- side panel ----------
+const fmtChance = ip => ip >= 0.01 ? (ip * 100).toFixed(1) + '%' : '1 in ' + Math.round(1 / ip).toLocaleString('en-US');
+const ledger = document.getElementById('ledger');
+items.forEach(it => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'row ' + it.o.status; b.id = 'row-' + it.idx;
+  const listed = it.o.status === 'listed';
+  b.innerHTML = `<span class="nm"></span><span class="num">${listed ? it.o.ps_cum.toFixed(2) : '—'}</span><span class="num">${listed ? fmtChance(it.o.ip).replace('1 in ', '1:') : 'cleared'}</span>`;
+  b.querySelector('.nm').textContent = it.o.name;
+  b.onclick = () => select(it.idx, true);
+  ledger.appendChild(b); it.row = b;
+});
+document.getElementById('fetched').textContent = DATA.fetched;
+
+let selected = 0, follow = null;
+function select(idx, fly) {
+  selected = idx;
+  items.forEach(it => {
+    const on = it.idx === idx;
+    it.row.classList.toggle('on', on);
+    it.line.material.opacity = on ? 1 : (it.o.status === 'listed' ? 0.3 : 0.5);
+    it.tag.classList.toggle('sel', on);
+  });
+  const o = items[idx].o, el = document.getElementById('detail');
+  const orb = o.orbit;
+  if (o.status === 'listed') {
+    el.innerHTML = `<span class="chip listed">On the Sentry list</span><h2></h2>
+      <dl><dt>Palermo scale</dt><dd>${o.ps_cum.toFixed(2)}</dd>
+      <dt>Impact chance</dt><dd>${fmtChance(o.ip)}</dd>
+      <dt>Possible years</dt><dd>${o.years}</dd>
+      <dt>Diameter</dt><dd>${o.diameter_km >= 1 ? o.diameter_km.toFixed(2) + ' km' : Math.round(o.diameter_km * 1000) + ' m'}</dd>
+      <dt>Orbit</dt><dd>a ${orb.a.toFixed(2)} AU · e ${orb.e.toFixed(2)} · i ${orb.i.toFixed(1)}°</dd></dl>
+      <p class="note">Palermo below 0 means the risk is smaller than the normal background chance of an impact that size over the same time.</p>`;
+  } else {
+    el.innerHTML = `<span class="chip removed">Removed from list</span><h2></h2>
+      <dl><dt>Removed</dt><dd>${(o.removed || '').slice(0, 10)}</dd>
+      <dt>Orbit</dt><dd>a ${orb.a.toFixed(2)} AU · e ${orb.e.toFixed(2)} · i ${orb.i.toFixed(1)}°</dd></dl>
+      <p class="note">In early 2025 this asteroid briefly had about a 3% chance of hitting Earth in 2032. New observations ruled that out, and Sentry dropped it in March 2026.</p>`;
+  }
+  el.querySelector('h2').textContent = o.name;
+  follow = fly ? items[idx].mesh : follow;
+}
+
+// ---------- time ----------
+const jdNow = () => Date.now() / 86400000 + 2440587.5;
+let jd = jdNow(), playing = true, daysPerSec = 10;
+const dateEl = document.getElementById('date');
+const playBtn = document.getElementById('play');
+playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? 'Pause' : 'Play'; };
+document.getElementById('today').onclick = () => { jd = jdNow(); };
+const speed = document.getElementById('speed'), speedv = document.getElementById('speedv');
+speed.oninput = () => { daysPerSec = +speed.value; speedv.textContent = daysPerSec + ' days/s'; };
+document.getElementById('fly').onclick = () => { follow = earth; };
+controls.addEventListener('start', () => { if (follow) { follow = null; } });
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) { playing = false; playBtn.textContent = 'Play'; }
+
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(canvas);
+
+function place(el, v) {
+  const p = v.clone().project(camera);
+  const vis = p.z < 1 && Math.abs(p.x) < 1.1 && Math.abs(p.y) < 1.1;
+  el.hidden = !vis;
+  if (vis) { el.style.left = ((p.x + 1) / 2 * canvas.clientWidth) + 'px'; el.style.top = ((1 - p.y) / 2 * canvas.clientHeight) + 'px'; }
+}
+
+let last = performance.now();
+const tmp = new THREE.Vector3();
+function frame(t) {
+  const dt = Math.min(0.1, (t - last) / 1000); last = t;
+  if (playing) jd += daysPerSec * dt;
+  earth.position.copy(posAt(EARTH, jd));
+  globe.rotation.y += dt * 0.4;
+  items.forEach(it => { it.mesh.position.copy(posAt(it.o.orbit, jd)); it.mesh.rotation.x += it.mesh.userData.spin.x; it.mesh.rotation.y += it.mesh.userData.spin.y; });
+  if (follow) {
+    tmp.copy(follow.position).sub(controls.target);
+    controls.target.add(tmp); camera.position.add(tmp);
+    const dist = camera.position.distanceTo(controls.target), want = follow === earth ? 3 : 4;
+    if (dist > want * 1.05) camera.position.lerp(controls.target, 0.05);
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  const d = new Date((jd - 2440587.5) * 86400000);
+  dateEl.textContent = d.toISOString().slice(0, 10);
+  items.forEach(it => place(it.tag, it.mesh.position));
+  place(earthTag, earth.position); place(sunTag, sun.position);
+  requestAnimationFrame(frame);
+}
+select(0, false);
+resize();
+requestAnimationFrame(frame);
+</script>

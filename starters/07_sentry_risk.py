@@ -12,7 +12,7 @@ for _, row in df.nlargest(5, 'ps_cum').iterrows():                    # label th
     plt.annotate(row['fullname'].strip(), (row['ip'], row['ps_cum']), fontsize=8)
 plt.xscale('log'); plt.xlabel('Cumulative impact probability'); plt.ylabel('Palermo scale (cumulative)')
 plt.title(f'JPL Sentry risk list: {len(df)} objects (dot size = diameter)')
-plt.tight_layout(); plt.savefig('sentry_risk.png', dpi=150)
+plt.tight_layout(); plt.savefig('plots/07_sentry_risk.png', dpi=150)
 
 yr4 = requests.get(API + '?des=2024%20YR4', timeout=60).json()        # case study: is 2024 YR4 still listed?
 print('2024 YR4:', yr4.get('error', 'still on the list'), yr4.get('removed', yr4.get('summary', {}).get('ip')))

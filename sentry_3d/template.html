@@ -47,6 +47,9 @@ dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; f
 dt { color: var(--muted); }
 dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .note { color: var(--muted); font-size: 0.78rem; line-height: 1.45; margin: 0; }
+.detail { max-height: 58%; overflow-y: auto; flex-shrink: 0; }
+.detail h3 { font-family: var(--display); font-size: 0.9rem; font-weight: 500; margin: 8px 0 0; color: var(--risk); }
+.detail .body { margin: 0; font-size: 0.82rem; line-height: 1.5; }
 .ledger-head { display: grid; grid-template-columns: minmax(0,1fr) 60px 92px; gap: 8px; padding: 10px 16px 6px; font: 500 0.66rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .ledger { overflow-y: auto; flex: 1; min-height: 0; }
 .row { display: grid; grid-template-columns: minmax(0,1fr) 60px 92px; gap: 8px; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); color: var(--ink); padding: 9px 16px; cursor: pointer; font: 400 0.8rem var(--body); }
@@ -63,6 +66,7 @@ dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
   aside { border-left: 0; border-top: 1px solid var(--line); }
   .ledger { max-height: none; }
   .hud p { display: none; }
+  .detail { max-height: none; }
 }
 @media (prefers-reduced-motion: reduce) { .btn, .row { transition: none; } }
 </style>
@@ -214,6 +218,31 @@ items.forEach(it => {
 });
 document.getElementById('fetched').textContent = DATA.fetched;
 
+// ---------- plain-language impact explanations ----------
+const fmtDate = s => new Date(s + 'T00:00:00Z').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+function fmtMt(mt) {
+  const hiroshima = mt / 0.015;                       // Hiroshima bomb: about 15 kilotons = 0.015 megatons
+  const energy = mt >= 1 ? `${mt.toLocaleString('en-US', { maximumFractionDigits: mt < 10 ? 1 : 0 })} megatons` : `${(mt * 1000).toLocaleString('en-US', { maximumFractionDigits: mt < 0.01 ? 1 : 0 })} kilotons`;
+  const times = hiroshima >= 1.5 ? `about ${Math.round(hiroshima).toLocaleString('en-US')}× Hiroshima` : hiroshima >= 0.75 ? 'about the Hiroshima bomb' : `about ${Math.round(hiroshima * 100)}% of Hiroshima`;
+  return `${energy} of TNT (${times})`;
+}
+function whenText(o) {
+  const im = o.impact, pct = Math.round(im.best_share * 100);
+  const why = 'These are close passes where Earth still sits inside the range of places the asteroid could be.';
+  if (im.n_years90 === 1) {
+    return `${pct >= 100 ? 'Essentially all' : `Almost all (${pct}%)`} of the risk falls on one close pass in ${im.window90[0]}. ${why} Outside that pass the chance is essentially zero.`;
+  }
+  const yrs = im.top_years.map(([y]) => y).join(', ');
+  return `The risk is spread over ${im.n_years90} different years between ${im.window90[0]} and ${im.window90[1]} (90% of the total). The riskiest years are ${yrs}, and the single riskiest date holds ${pct}% of the chance. ${why}`;
+}
+function effectText(m) {
+  if (m < 25) return `At about ${Math.round(m)} m across, it would most likely explode high in the atmosphere as a very bright fireball, and little or nothing would reach the ground. The shock wave could still break windows over a wide area, as the roughly 18 m Chelyabinsk meteor did over Russia in 2013, injuring about 1,500 people, mostly from flying glass.`;
+  if (m < 140) return `At about ${Math.round(m)} m across, it could destroy a city-sized area, either by exploding in the air or by digging a crater up to about a kilometer wide. The 1908 Tunguska explosion over Siberia, from an object a few tens of meters across, flattened about 2,000 km² of forest. Very dangerous locally, but no effect on the rest of the world.`;
+  if (m < 300) return `At about ${Math.round(m)} m across, it is in NASA's "regional damage" class (140 m and up). On land it would leave a crater one to a few kilometers wide and devastate an area the size of a large metropolitan region. In the ocean it could cause a damaging tsunami.`;
+  if (m < 1000) return `At about ${Math.round(m)} m across, it would devastate an area the size of a small country and leave a crater several kilometers wide. In the ocean it could send tsunamis across an entire ocean basin.`;
+  return `At about ${(m / 1000).toFixed(1)} km across, it is big enough for global effects: dust and soot thrown into the upper atmosphere could cool the climate and damage harvests worldwide for years. For scale, the impact that ended the dinosaurs 66 million years ago was about 10 km across.`;
+}
+
 let selected = 0, follow = null;
 function select(idx, fly) {
   selected = idx;
@@ -232,7 +261,16 @@ function select(idx, fly) {
       <dt>Possible years</dt><dd>${o.years}</dd>
       <dt>Diameter</dt><dd>${o.diameter_km >= 1 ? o.diameter_km.toFixed(2) + ' km' : Math.round(o.diameter_km * 1000) + ' m'}</dd>
       <dt>Orbit</dt><dd>a ${orb.a.toFixed(2)} AU · e ${orb.e.toFixed(2)} · i ${orb.i.toFixed(1)}°</dd></dl>
-      <p class="note">Palermo below 0 means the risk is smaller than the normal background chance of an impact that size over the same time.</p>`;
+      <p class="note">Palermo below 0 means the risk is smaller than the normal background chance of an impact that size over the same time.</p>
+      <h3>When is the risk highest?</h3>
+      <dl><dt>Riskiest date</dt><dd>${fmtDate(o.impact.best_date)}</dd>
+      <dt>Chance that day</dt><dd>${fmtChance(o.impact.best_ip)}</dd></dl>
+      <p class="body">${whenText(o)}</p>
+      <h3>What could happen if it hit?</h3>
+      <dl><dt>Energy</dt><dd>${fmtMt(o.impact.energy_mt)}</dd>
+      <dt>Impact speed</dt><dd>${o.impact.v_imp.toFixed(1)} km/s</dd></dl>
+      <p class="body">${effectText(o.diameter_km * 1000)}</p>
+      <p class="note">A general guide based on size and energy. Real effects depend on what the asteroid is made of, the angle it comes in at, and where it lands; about 70% of Earth is ocean.</p>`;
   } else {
     el.innerHTML = `<span class="chip removed">Removed from list</span><h2></h2>
       <dl><dt>Removed</dt><dd>${(o.removed || '').slice(0, 10)}</dd>

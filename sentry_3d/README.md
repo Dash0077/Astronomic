@@ -3,7 +3,7 @@
 **Open the 3D model:** https://claude.ai/artifact/SSPspCFBKV9WAWe4YcnmT8
 (Private link: only people it has been shared with can open it.)
 
-An interactive 3D model of Earth and the 15 highest-risk asteroids on NASA JPL's Sentry impact-risk list, plus 2024 YR4 (removed from the list on 2026-03-05), moving on their real orbits around the Sun.
+An interactive 3D model of Earth and the 15 highest-risk asteroids on NASA JPL's Sentry impact-risk list, plus 2024 YR4 (removed from the list on 2026-03-05), moving on their real orbits around the Sun. Click an asteroid to see its riskiest impact date and what could happen if it hit.
 
 ## What you see
 

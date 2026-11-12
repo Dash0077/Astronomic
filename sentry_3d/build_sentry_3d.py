@@ -44,9 +44,32 @@ def orbit(des):
             'a': el['a'], 'e': el['e'], 'i': el['i'], 'om': el['om'], 'w': el['w'], 'ma': el['ma']}
 
 
+def impact_details(des):
+    """Sentry's per-object detail: impact energy, speed, and every possible impact date."""
+    d = get_json(f'https://ssd-api.jpl.nasa.gov/sentry.api?des={requests.utils.quote(des)}',
+                 f'sentry_detail_{des.replace(" ", "_")}.json')
+    s = d['summary']
+    vi = pd.DataFrame(d['data'])
+    vi['ip'] = pd.to_numeric(vi['ip'])
+    vi['year'] = vi['date'].str[:4].astype(int)
+    best = vi.loc[vi['ip'].idxmax()]                       # single most likely impact date
+    by_year = vi.groupby('year')['ip'].sum().sort_values(ascending=False)
+    # smallest set of years that holds 90% of the total impact chance
+    keep = by_year[by_year.cumsum() <= 0.9 * by_year.sum()]
+    keep = by_year.iloc[:max(1, len(keep) + (1 if len(keep) < len(by_year) else 0))]
+    return {
+        'energy_mt': float(s['energy']), 'v_imp': float(s['v_imp']), 'mass_kg': float(s['mass']),
+        'best_date': best['date'][:10], 'best_ip': float(best['ip']),
+        'best_share': float(best['ip'] / vi['ip'].sum()),
+        'top_years': [[int(y), float(p)] for y, p in by_year.head(3).items()],
+        'window90': [int(keep.index.min()), int(keep.index.max())], 'n_years90': len(keep),
+    }
+
+
 objects = []
 for _, r in top.iterrows():
     objects.append({
+        'impact': impact_details(r['des']),
         'name': r['fullname'].strip(), 'des': r['des'], 'status': 'listed',
         'ip': r['ip'], 'ps_cum': r['ps_cum'], 'diameter_km': r['diameter'],
         'years': r['range'], 'n_imp': int(r['n_imp']), 'v_inf': r['v_inf'],
